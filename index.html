@@ -673,7 +673,16 @@ let wipeArmed = false;
 function loadItems() {
   try {
     const arr = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
-    return Array.isArray(arr) ? arr.filter(valid).map(normalize) : [];
+    if (!Array.isArray(arr)) return [];
+    const out = arr.filter(valid).map(normalize);
+    /* 旧版本数据缺 updatedAt：补当前时间并立即落盘固化，保证合并/墓碑语义正确 */
+    let legacy = false;
+    const now = Date.now();
+    for (const it of out) {
+      if (!it.updatedAt) { it.updatedAt = now; legacy = true; }
+    }
+    if (legacy) localStorage.setItem(STORE_KEY, JSON.stringify(out));
+    return out;
   } catch { return []; }
 }
 function loadTombs() {
@@ -1083,12 +1092,18 @@ async function syncNow(manual) {
     if (cloud && cloud.items) { mergePayload(cloud); }
     const afterP = buildPayload();
     if (canon(afterP) !== before) { save(); render(); }
+    /* 覆盖保护：云端读不到数据（空/404），且本码并非新建或确证空 →
+       停止推送。真实事故：绑定时网络抖动读到空，本机 1 条覆盖了云端 13 条 */
+    if (!cloud && !syncConf.fresh) {
+      throw new Error("云端暂时读不到数据，已暂停上传以防覆盖，稍后点「立即同步」重试");
+    }
     if (!cloud || canon(afterP) !== canon(cloud)) {
       const doc = await encDoc(key, afterP);
       const pr = await fetch(url, { method: "POST", headers: { "content-type": "text/plain" }, body: JSON.stringify(doc) });
       if (!pr.ok) throw new Error("推送失败（" + pr.status + "）");
     }
     syncConf.lastSync = Date.now();
+    syncConf.fresh = false;
     saveSyncConf();
     setSyncStatus("ok");
     if (manual) toast("已同步 ✓");
@@ -1139,7 +1154,7 @@ function refreshSyncUI() {
 function syncGen() {
   (async () => {
     const code = genCode();
-    syncConf = { code, k: await shaHex(code + "\u00b7sub-manager"), lastSync: 0 };
+    syncConf = { code, k: await shaHex(code + "\u00b7sub-manager"), lastSync: 0, fresh: true };
     saveSyncConf();
     refreshSyncUI();
     try { await copyText(fmtCode(code)); toast("同步码已生成并复制，请妥善保存"); }
@@ -1157,11 +1172,20 @@ async function syncBind() {
     let doc = null;
     const res = await fetch(SYNC_ROOT + k, { cache: "no-store" });
     if (res.ok) { try { doc = JSON.parse(await res.text()); } catch {} }
-    if (doc && doc.ct && doc.iv) {
+    if (!doc || !doc.ct || !doc.iv) {
+      /* 空读重试：网络抖动可能拿到空响应，间隔 1.2s 再读一次才确信云端无数据 */
+      await new Promise(r => setTimeout(r, 1200));
+      try {
+        const res2 = await fetch(SYNC_ROOT + k, { cache: "no-store" });
+        if (res2.ok) { try { doc = JSON.parse(await res2.text()); } catch {} }
+      } catch {}
+    }
+    const cloudHas = !!(doc && doc.ct && doc.iv);
+    if (cloudHas) {
       try { await decDoc(await deriveKey(code), doc); }
       catch { toast("同步码不正确：无法解密云端数据", "warn"); return; }
     }
-    syncConf = { code, k, lastSync: 0 };
+    syncConf = { code, k, lastSync: 0, fresh: !cloudHas };
     saveSyncConf();
     refreshSyncUI();
     toast(doc ? "绑定成功，正在拉取云端数据" : "云端暂无数据，将把本机数据上传");
