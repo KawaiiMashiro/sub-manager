@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#F7F3EB">
+<title>订阅管家</title>
+<style>
+/* ============ 设计令牌 ============ */
+:root {
+  /* 色彩 · 暖米账本风 */
+  --bg: #F7F3EB;
+  --surface: #FFFFFF;
+  --surface-subtle: #F0EBDF;
+  --text: #21301E;
+  --text-secondary: #586851;
+  --text-muted: #8A9580;
+  --border: #E4DCC9;
+  --border-subtle: #EDE7D8;
+  --primary: #34693F;
+  --primary-deep: #2A5535;
+  --primary-light: #47835A;
+  --primary-subtle: #E2EEDD;
+  --primary-foreground: #FFFFFF;
+  --accent: #AE4E18;
+  --accent-subtle: #F6E8D9;
+  --danger: #B3362B;
+  --danger-subtle: #F9E8E3;
+  --danger-foreground: #FFFFFF;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-num: Georgia, "Times New Roman", "Songti SC", serif;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
+
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-2xl: 24px; --r-full: 9999px;
+
+  --shadow-sm: 0 1px 2px rgba(33,48,30,.05), 0 1px 10px rgba(33,48,30,.05);
+  --shadow-md: 0 2px 8px rgba(33,48,30,.07), 0 10px 28px rgba(33,48,30,.08);
+  --shadow-lg: 0 12px 40px rgba(33,48,30,.18);
+  --shadow-fab: 0 6px 18px rgba(42,85,53,.38);
+
+  --dur-fast: 150ms; --dur-base: 220ms; --dur-slow: 320ms;
+}
+
+/* ============ 基础 ============ */
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { font-size: 16px; }
+body {
+  font-family: var(--font-sans);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100dvh;
+  padding-bottom: calc(108px + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(560px 380px at 88% -6%, rgba(71,131,90,.10), transparent 70%),
+    radial-gradient(520px 360px at -10% 22%, rgba(174,78,24,.06), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, textarea { font-family: inherit; font-size: 1rem; color: var(--text); }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--r-sm); }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(88,104,81,.28); border-radius: var(--r-full); }
+
+.app { max-width: 640px; margin: 0 auto; padding: 0 var(--sp-4); }
+
+/* ============ 顶栏 ============ */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(var(--sp-5) * 0.7) 0 var(--sp-3);
+}
+.brand { display: flex; align-items: center; gap: var(--sp-3); }
+.brand-mark {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: linear-gradient(150deg, var(--primary-light), var(--primary-deep));
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.22);
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+.brand-mark svg { width: 18px; height: 18px; }
+.brand h1 { font-size: 1.1875rem; font-weight: 750; letter-spacing: .01em; }
+.brand .brand-sub {
+  display: block; font-size: .625rem; font-weight: 500; letter-spacing: .18em;
+  color: var(--text-muted); margin-top: -2px;
+}
+.top-actions { display: flex; gap: var(--sp-2); }
+.icon-chip {
+  width: 38px; height: 38px; border-radius: var(--r-full);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  transition: background var(--dur-fast) ease-out, transform var(--dur-fast) ease-out;
+}
+.icon-chip svg { width: 17px; height: 17px; color: var(--text-secondary); }
+.icon-chip:hover { background: var(--surface-subtle); }
+.icon-chip:active { transform: scale(.92); }
+
+/* ============ 汇总卡 ============ */
+.summary {
+  position: relative; overflow: hidden;
+  background: linear-gradient(155deg, #417E4E 0%, #2F5E3A 58%, #27502F 100%);
+  color: #F2F6EC;
+  border-radius: var(--r-2xl);
+  padding: var(--sp-5) var(--sp-5) calc(var(--sp-5) * .8);
+  box-shadow: var(--shadow-md);
+}
+.summary::after {
+  content: ""; position: absolute; right: -52px; top: -84px;
+  width: 210px; height: 210px; border-radius: var(--r-full);
+  background: rgba(255,255,255,.07);
+}
+.summary::before {
+  content: ""; position: absolute; right: 42px; top: -110px;
+  width: 132px; height: 200px; border-radius: var(--r-full);
+  background: rgba(255,255,255,.055); transform: rotate(26deg);
+}
+.summary .label {
+  font-size: .75rem; letter-spacing: .22em; opacity: .75; font-weight: 600;
+  text-transform: uppercase;
+}
+.summary .amount {
+  font-family: var(--font-num);
+  font-size: clamp(2.5rem, 13.5vw, 3.4rem);
+  font-weight: 600; line-height: 1.12; margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 18px rgba(0,0,0,.14);
+}
+.summary .amount .yen { font-size: .5em; margin-right: 4px; opacity: .85; }
+.summary .amount .per { font-size: .3em; font-family: var(--font-sans); font-weight: 400; opacity: .7; margin-left: 6px; letter-spacing: .08em; }
+.summary .sub {
+  display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4);
+  margin-top: var(--sp-4); padding-top: var(--sp-4);
+  border-top: 1px solid rgba(242,246,236,.22);
+  font-size: .8125rem; opacity: .95;
+}
+.summary .sub b { font-weight: 650; font-variant-numeric: tabular-nums; }
+.summary .sub .paused-note { color: #F3D9A8; }
+
+/* ============ 列表 ============ */
+.list-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin: var(--sp-5) var(--sp-1) var(--sp-3);
+}
+.list-head h2 { font-size: 1.03125rem; font-weight: 700; letter-spacing: .01em; }
+.list-head .hint { font-size: .71875rem; color: var(--text-muted); }
+
+.sub-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.sub-card {
+  display: flex; align-items: center; gap: var(--sp-3);
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg); padding: var(--sp-4) var(--sp-4) var(--sp-4) var(--sp-3);
+  box-shadow: var(--shadow-sm);
+  width: 100%; text-align: left;
+  transition: box-shadow var(--dur-fast) ease-out, transform var(--dur-fast) ease-out, opacity var(--dur-base) ease-out;
+  animation: card-in var(--dur-slow) ease-out backwards;
+}
+.sub-card:hover { box-shadow: var(--shadow-md); }
+.sub-card:active { transform: scale(.985); }
+.sub-card.paused { opacity: .52; }
+.sub-card.paused .avatar { filter: grayscale(.9); }
+.sub-card.paused .sub-cost .m, .sub-card.paused .sub-name .name-text { color: var(--text-muted); }
+@keyframes card-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.sub-card:nth-child(1) { animation-delay: 0ms; }
+.sub-card:nth-child(2) { animation-delay: 40ms; }
+.sub-card:nth-child(3) { animation-delay: 80ms; }
+.sub-card:nth-child(4) { animation-delay: 120ms; }
+.sub-card:nth-child(5) { animation-delay: 160ms; }
+.sub-card:nth-child(n+6) { animation-delay: 180ms; }
+
+/* 勾选（计费开关） */
+.check {
+  width: 26px; height: 26px; flex: none;
+  border-radius: var(--r-full);
+  border: 2px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--dur-fast) ease-out, border-color var(--dur-fast) ease-out, transform var(--dur-fast) cubic-bezier(.34,1.56,.64,1);
+}
+.check svg { width: 14px; height: 14px; color: #fff; opacity: 0; transform: scale(.4); transition: all var(--dur-fast) ease-out; }
+.check.on { background: var(--primary); border-color: var(--primary); }
+.check.on svg { opacity: 1; transform: scale(1); }
+.check:hover { border-color: var(--primary-light); }
+.check:active { transform: scale(.82); }
+
+.avatar {
+  width: 44px; height: 44px; flex: none;
+  border-radius: var(--r-md); display: flex; align-items: center; justify-content: center;
+  font-weight: 650; font-size: 1.05rem; color: #fff;
+  box-shadow: inset 0 -6px 12px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.18);
+  transition: filter var(--dur-base) ease-out;
+}
+.sub-info { flex: 1; min-width: 0; }
+.sub-name {
+  font-weight: 650; font-size: .9375rem;
+  display: flex; align-items: center; gap: var(--sp-2);
+  white-space: nowrap; overflow: hidden;
+}
+.sub-name span.name-text { overflow: hidden; text-overflow: ellipsis; transition: color var(--dur-base); }
+.cycle-tag {
+  flex: none; font-size: .6875rem; font-weight: 650; letter-spacing: .04em;
+  padding: 1.5px 8px; border-radius: var(--r-full);
+}
+.cycle-tag.monthly { background: var(--primary-subtle); color: var(--primary); }
+.cycle-tag.yearly { background: var(--accent-subtle); color: var(--accent); }
+.paused-tag {
+  flex: none; font-size: .6875rem; font-weight: 600; letter-spacing: .04em;
+  padding: 1.5px 8px; border-radius: var(--r-full);
+  background: var(--surface-subtle); color: var(--text-muted);
+}
+.expire-tag {
+  flex: none; font-size: .6875rem; font-weight: 650; letter-spacing: .04em;
+  padding: 1.5px 8px; border-radius: var(--r-full);
+}
+.expire-tag.soon { background: #FBEEDA; color: #96590F; }
+.expire-tag.expired { background: var(--danger-subtle); color: var(--danger); }
+.sub-meta {
+  font-size: .78125rem; color: var(--text-secondary); margin-top: 3px;
+  display: flex; flex-wrap: wrap; gap: 2px 6px;
+}
+.sub-meta .dot::before { content: "·"; color: var(--text-muted); }
+.sub-meta .exp-soon { color: var(--accent); font-weight: 650; }
+.sub-meta .exp-expired { color: var(--danger); font-weight: 650; }
+.sub-cost { flex: none; text-align: right; }
+.sub-cost .m {
+  font-family: var(--font-num); font-size: 1.09375rem; font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.sub-cost .m .per { font-size: .6875rem; color: var(--text-muted); font-family: var(--font-sans); font-weight: 400; }
+.sub-cost .raw { font-size: .71875rem; color: var(--text-muted); margin-top: 2px; }
+
+/* 空状态 */
+.empty {
+  text-align: center; padding: var(--sp-7) var(--sp-5);
+  border: 1.5px dashed var(--border); border-radius: var(--r-2xl);
+  margin-top: var(--sp-2);
+  background: rgba(255,255,255,.45);
+}
+.empty .glyph {
+  width: 60px; height: 60px; margin: 0 auto var(--sp-3);
+  border-radius: var(--r-full); background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
+}
+.empty h3 { font-size: .9375rem; font-weight: 700; }
+.empty p { font-size: .8125rem; color: var(--text-secondary); margin: var(--sp-1) 0 var(--sp-4); }
+.empty .empty-add {
+  min-height: 46px; padding: 0 var(--sp-5);
+  background: var(--primary); color: var(--primary-foreground);
+  border-radius: var(--r-full); font-size: .9375rem; font-weight: 650;
+  box-shadow: var(--shadow-fab);
+  transition: background var(--dur-fast) ease-out, transform var(--dur-fast) ease-out;
+}
+.empty .empty-add:hover { background: var(--primary-deep); }
+.empty .empty-add:active { transform: scale(.96); }
+
+/* ============ 悬浮添加按钮 ============ */
+.fab {
+  position: fixed; z-index: 30;
+  right: max(var(--sp-5), calc(50% - 320px + var(--sp-5)));
+  bottom: calc(28px + env(safe-area-inset-bottom));
+  width: 58px; height: 58px; border-radius: var(--r-full);
+  background: linear-gradient(150deg, var(--primary-light), var(--primary-deep));
+  color: var(--primary-foreground);
+  box-shadow: var(--shadow-fab);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform var(--dur-fast) ease-out, box-shadow var(--dur-fast) ease-out;
+}
+.fab svg { width: 25px; height: 25px; }
+.fab:hover { box-shadow: 0 10px 26px rgba(42,85,53,.48); }
+.fab:active { transform: scale(.9); }
+
+/* ============ 底部抽屉（表单） ============ */
+.overlay {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(33,48,30,.38);
+  backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--dur-base) ease-out;
+}
+.overlay.open { opacity: 1; pointer-events: auto; }
+.sheet {
+  position: fixed; z-index: 50; left: 0; right: 0; bottom: 0;
+  max-width: 640px; margin: 0 auto;
+  background: var(--bg);
+  border-radius: var(--r-2xl) var(--r-2xl) 0 0;
+  padding: var(--sp-3) var(--sp-5) calc(var(--sp-5) + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-lg);
+  transform: translateY(105%);
+  transition: transform var(--dur-slow) cubic-bezier(.32,.72,.24,1);
+  max-height: 88dvh; overflow-y: auto;
+}
+.sheet.open { transform: translateY(0); }
+.sheet-grab {
+  width: 42px; height: 4px; border-radius: var(--r-full);
+  background: var(--border); margin: var(--sp-1) auto var(--sp-3);
+}
+.sheet-title { font-size: 1.0625rem; font-weight: 750; }
+.sheet-title-sub { font-size: .75rem; color: var(--text-muted); margin-top: 2px; margin-bottom: var(--sp-4); }
+
+.field { margin-bottom: var(--sp-4); }
+.field label {
+  display: block; font-size: .8125rem; font-weight: 650;
+  color: var(--text-secondary); margin-bottom: 6px;
+}
+.field label .opt { font-weight: 400; color: var(--text-muted); font-size: .75rem; }
+.field input, .field textarea {
+  width: 100%;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 12px 14px; min-height: 46px;
+  transition: border-color var(--dur-fast) ease-out, box-shadow var(--dur-fast) ease-out;
+}
+.field textarea { min-height: 66px; resize: none; }
+.field input:hover, .field textarea:hover { border-color: #D2C8B2; }
+.field input:focus, .field textarea:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(52,105,63,.13);
+}
+.field .err { display: none; font-size: .75rem; color: var(--danger); margin-top: 5px; }
+.field.invalid input { border-color: var(--danger); }
+.field.invalid .err { display: block; }
+.field input[type="date"] { -webkit-appearance: none; appearance: none; }
+
+.segmented {
+  display: flex; background: var(--surface-subtle);
+  border-radius: var(--r-md); padding: 4px; gap: 4px;
+}
+.segmented button {
+  flex: 1; min-height: 44px; border-radius: var(--r-sm);
+  font-size: .875rem; font-weight: 650; color: var(--text-secondary);
+  transition: all var(--dur-fast) ease-out;
+}
+.segmented button .seg-sub { display: block; font-size: .6875rem; font-weight: 400; margin-top: 1px; }
+.segmented button.active {
+  background: var(--surface); color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+.segmented button.active .seg-sub { color: var(--text-muted); }
+
+.form-actions { display: flex; gap: var(--sp-3); margin-top: var(--sp-5); }
+.btn-primary {
+  flex: 1; min-height: 50px;
+  background: linear-gradient(155deg, var(--primary-light), var(--primary-deep));
+  color: var(--primary-foreground);
+  border-radius: var(--r-md); font-size: 1rem; font-weight: 700;
+  box-shadow: var(--shadow-fab);
+  transition: transform var(--dur-fast) ease-out, box-shadow var(--dur-fast) ease-out;
+}
+.btn-primary:hover { box-shadow: 0 8px 22px rgba(42,85,53,.45); }
+.btn-primary:active { transform: scale(.98); }
+.btn-cancel {
+  min-height: 50px; padding: 0 var(--sp-5);
+  background: var(--surface); color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  font-size: 1rem; font-weight: 500;
+}
+.btn-cancel:hover { background: var(--surface-subtle); }
+.btn-delete {
+  display: block; width: 100%; min-height: 46px; margin-top: var(--sp-3);
+  background: none; color: var(--danger); font-size: .875rem; font-weight: 650;
+  border-radius: var(--r-md); padding: var(--sp-2);
+  transition: background var(--dur-fast) ease-out;
+}
+.btn-delete:hover { background: var(--danger-subtle); }
+.btn-delete.confirm { background: var(--danger); color: var(--danger-foreground); font-weight: 750; }
+
+/* ============ 设置页 ============ */
+.settings-page {
+  position: fixed; inset: 0; z-index: 45;
+  background: var(--bg);
+  overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform var(--dur-slow) cubic-bezier(.32,.72,.24,1);
+  padding-bottom: calc(var(--sp-6) + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(560px 380px at 88% -6%, rgba(71,131,90,.10), transparent 70%),
+    radial-gradient(520px 360px at -10% 22%, rgba(174,78,24,.06), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+}
+.settings-page.open { transform: translateX(0); }
+.settings-inner { max-width: 640px; margin: 0 auto; padding: 0 var(--sp-4); }
+.settings-head {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: calc(var(--sp-5) * 0.7) 0 var(--sp-4);
+  position: sticky; top: 0; z-index: 5;
+  background: linear-gradient(var(--bg) 78%, transparent);
+}
+.back-btn {
+  width: 38px; height: 38px; border-radius: var(--r-full);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm); flex: none;
+}
+.back-btn svg { width: 18px; height: 18px; color: var(--text-secondary); }
+.settings-head h2 { font-size: 1.1875rem; font-weight: 750; }
+
+.set-card {
+  background: var(--surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg); padding: var(--sp-4);
+  box-shadow: var(--shadow-sm); margin-bottom: var(--sp-4);
+}
+.set-card h3 {
+  font-size: .9375rem; font-weight: 700;
+  display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2);
+}
+.set-card h3 .sc-icon {
+  width: 28px; height: 28px; border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+.set-card h3 .sc-icon svg { width: 15px; height: 15px; }
+.sc-icon.green { background: var(--primary-subtle); color: var(--primary); }
+.sc-icon.amber { background: var(--accent-subtle); color: var(--accent); }
+.sc-icon.red { background: var(--danger-subtle); color: var(--danger); }
+.set-desc { font-size: .78125rem; color: var(--text-secondary); margin-bottom: var(--sp-3); }
+
+/* 同步状态行 */
+.sync-line {
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size: .8125rem; color: var(--text-secondary);
+  padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm);
+  background: var(--surface-subtle); margin-bottom: var(--sp-3);
+}
+.sync-dot { width: 9px; height: 9px; border-radius: var(--r-full); background: var(--text-muted); flex: none; }
+.sync-dot.ok { background: #3E9B54; box-shadow: 0 0 0 3px rgba(62,155,84,.18); }
+.sync-dot.syncing { background: #D99B1C; animation: pulse 1.1s ease-in-out infinite; }
+.sync-dot.error { background: var(--danger); box-shadow: 0 0 0 3px rgba(179,54,43,.15); }
+@keyframes pulse { 50% { opacity: .35; } }
+
+.sync-code-box {
+  display: flex; align-items: center; gap: var(--sp-2);
+  background: var(--surface-subtle); border: 1px dashed var(--border);
+  border-radius: var(--r-sm); padding: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+.sync-code-box .code {
+  flex: 1; font-family: var(--font-num); font-size: .9375rem; font-weight: 650;
+  letter-spacing: .1em; font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sync-code-box .copy-btn {
+  flex: none; font-size: .71875rem; font-weight: 600; color: var(--primary);
+  padding: 5px 10px; border-radius: var(--r-full); background: var(--primary-subtle);
+}
+.copy-btn:hover { background: #D4E6CC; }
+
+.set-btn {
+  width: 100%; min-height: 46px;
+  border-radius: var(--r-md); font-size: .875rem; font-weight: 650;
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  transition: all var(--dur-fast) ease-out;
+}
+.set-btn.primary { background: var(--primary); color: var(--primary-foreground); box-shadow: var(--shadow-fab); }
+.set-btn.primary:hover { background: var(--primary-deep); }
+.set-btn.ghost { background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border); }
+.set-btn.ghost:hover { background: var(--surface-subtle); }
+.set-btn:active { transform: scale(.98); }
+.set-btn + .set-btn { margin-top: var(--sp-2); }
+.set-btn svg { width: 16px; height: 16px; }
+
+.sync-input-row { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.sync-input-row input {
+  flex: 1; min-height: 46px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 10px 14px;
+  font-family: var(--font-num); letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.sync-input-row input:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(52,105,63,.13);
+}
+.sync-input-row button {
+  flex: none; min-height: 46px; padding: 0 var(--sp-4);
+  border-radius: var(--r-md); font-size: .875rem; font-weight: 650;
+  background: var(--primary); color: var(--primary-foreground);
+}
+.sync-divider {
+  display: flex; align-items: center; gap: var(--sp-3);
+  margin: var(--sp-4) 0; color: var(--text-muted); font-size: .71875rem;
+}
+.sync-divider::before, .sync-divider::after {
+  content: ""; flex: 1; height: 1px; background: var(--border);
+}
+
+.about-foot { text-align: center; font-size: .71875rem; color: var(--text-muted); padding: var(--sp-4) 0; }
+
+/* ============ Toast ============ */
+.toast {
+  position: fixed; z-index: 80; left: 50%; bottom: calc(108px + env(safe-area-inset-bottom));
+  transform: translate(-50%, 12px);
+  background: #2A3624; color: #F2F6EC;
+  font-size: .8125rem; font-weight: 550;
+  border-radius: var(--r-full); padding: 10px 20px;
+  opacity: 0; pointer-events: none;
+  box-shadow: var(--shadow-lg);
+  transition: opacity var(--dur-base) ease-out, transform var(--dur-base) ease-out;
+  max-width: 86vw; text-align: center;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.warn { background: #7A3A12; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 6.5l1.7 1.7L9 5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7h8" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><path d="M4 12.5h8" stroke="rgba(255,255,255,.55)" stroke-width="2.2" stroke-linecap="round"/><path d="M4 17.5h5" stroke="rgba(255,255,255,.55)" stroke-width="2.2" stroke-linecap="round"/><path d="M14 15.5l1.5 1.5 3-3.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <div>
+        <h1>订阅管家</h1>
+        <span class="brand-sub">SUB KEEPER</span>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="icon-chip" id="btn-settings" type="button" aria-label="打开设置">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" stroke="currentColor" stroke-width="1.9"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.08a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="summary" aria-labelledby="sum-label">
+    <div class="label" id="sum-label">每月固定支出</div>
+    <div class="amount"><span class="yen">¥</span><span id="sum-monthly">0.00</span><span class="per">/ 月</span></div>
+    <div class="sub">
+      <span>年化 <b id="sum-yearly">¥0.00</b></span>
+      <span>生效 <b id="sum-acount">0</b> 项</span>
+      <span id="sum-paused-wrap" hidden>暂停 <b class="paused-note" id="sum-pcount">0</b> 项</span>
+    </div>
+  </section>
+
+  <div class="list-head">
+    <h2>我的订阅</h2>
+    <span class="hint">按月费从高到低 · 勾选才计费</span>
+  </div>
+  <main id="list" class="sub-list" aria-label="订阅列表"></main>
+</div>
+
+<button class="fab" id="btn-add" type="button" aria-label="添加订阅">
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+  </svg>
+</button>
+
+<div class="overlay" id="overlay"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="sheet-grab" aria-hidden="true"></div>
+  <div class="sheet-title" id="sheet-title">添加订阅</div>
+  <div class="sheet-title-sub" id="sheet-sub">记录会员价格与办理时间</div>
+  <form id="sub-form" novalidate>
+    <div class="field" id="f-name">
+      <label for="in-name">名称</label>
+      <input id="in-name" type="text" maxlength="30" placeholder="如：iCloud+、视频年卡" autocomplete="off">
+      <p class="err">请填写名称</p>
+    </div>
+    <div class="field">
+      <label id="lbl-cycle">计费周期</label>
+      <div class="segmented" id="seg-cycle" role="radiogroup" aria-labelledby="lbl-cycle">
+        <button type="button" data-cycle="monthly" class="active" role="radio" aria-checked="true">每月<span class="seg-sub">按月扣费</span></button>
+        <button type="button" data-cycle="yearly" role="radio" aria-checked="false">每年<span class="seg-sub">年费自动折算月费</span></button>
+      </div>
+    </div>
+    <div class="field" id="f-price">
+      <label for="in-price">价格（元）</label>
+      <input id="in-price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00">
+      <p class="err">请填写大于 0 的价格</p>
+    </div>
+    <div class="field">
+      <label for="in-date">办理日期</label>
+      <input id="in-date" type="date">
+    </div>
+    <div class="field" id="f-expire">
+      <label for="in-expire">到期日期 <span class="opt">选填 · 手动填写</span></label>
+      <input id="in-expire" type="date">
+      <p class="err">到期日期不能早于办理日期</p>
+    </div>
+    <div class="field">
+      <label for="in-note">备注 <span class="opt">选填</span></label>
+      <textarea id="in-note" maxlength="60" placeholder="如：家庭共享 6 人、首年优惠价"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn-cancel" id="btn-cancel" type="button">取消</button>
+      <button class="btn-primary" id="btn-save" type="submit">保存</button>
+    </div>
+    <button class="btn-delete" id="btn-delete" type="button" hidden>删除这条订阅</button>
+  </form>
+</section>
+
+<section class="settings-page" id="settings-page" aria-label="设置">
+  <div class="settings-inner">
+    <div class="settings-head">
+      <button class="back-btn" id="btn-back" type="button" aria-label="返回">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <h2>设置</h2>
+    </div>
+
+    <div class="set-card" id="card-sync">
+      <h3><span class="sc-icon green"><svg viewBox="0 0 24 24" fill="none"><path d="M20 11.5A8 8 0 1 0 6.3 18M20 5v6.5h-6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>云同步</h3>
+      <p class="set-desc">换手机或多设备共用一套订阅数据。数据加密后经中转服务同步，服务器只存密文，同步码就是钥匙。</p>
+      <div class="sync-line" id="sync-line" hidden>
+        <span class="sync-dot" id="sync-dot"></span>
+        <span id="sync-text"></span>
+      </div>
+      <div id="sync-unbound">
+        <button class="set-btn primary" id="btn-sync-gen" type="button">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.2 2.2M16.2 16.2l2.2 2.2M18.4 5.6l-2.2 2.2M7.8 16.2l-2.2 2.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          生成我的同步码
+        </button>
+        <div class="sync-divider">已有同步码？在另一台设备绑定</div>
+        <div class="sync-input-row">
+          <input id="sync-code-input" maxlength="19" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false">
+          <button id="btn-sync-bind" type="button">绑定</button>
+        </div>
+      </div>
+      <div id="sync-bound" hidden>
+        <div class="sync-code-box">
+          <span class="code" id="sync-code-show"></span>
+          <button class="copy-btn" id="btn-sync-copy" type="button">复制</button>
+        </div>
+        <button class="set-btn primary" id="btn-sync-now" type="button">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M20 11.5A8 8 0 1 0 6.3 18M20 5v6.5h-6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          立即同步
+        </button>
+        <button class="set-btn ghost" id="btn-sync-unbind" type="button">解除绑定</button>
+      </div>
+    </div>
+
+    <div class="set-card" id="card-data">
+      <h3><span class="sc-icon amber"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>数据管理</h3>
+      <p class="set-desc">数据保存在本机浏览器里。换设备建议用云同步，备份文件适合单次迁移或存档。</p>
+      <button class="set-btn ghost" id="btn-export" type="button">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0l-4-4m4 4l4-4M4 19h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        导出备份文件
+      </button>
+      <button class="set-btn ghost" id="btn-import" type="button">导入备份（合并）</button>
+      <input type="file" id="import-file" accept="application/json,.json" hidden>
+    </div>
+
+    <div class="set-card" id="card-danger">
+      <h3><span class="sc-icon red"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>清空数据</h3>
+      <p class="set-desc">删除本机全部订阅记录（不影响云端）。操作不可撤销。</p>
+      <button class="set-btn ghost" id="btn-wipe" type="button" style="color:var(--danger)">清空所有订阅</button>
+    </div>
+
+    <p class="about-foot">订阅管家 V3 · 数据仅存本机与加密云端 · 免登录</p>
+  </div>
+</section>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ==================== 数据层 ==================== */
+const STORE_KEY = "sub-manager-v1";
+const TOMB_KEY = "sub-manager-tomb";
+const SYNC_CONF_KEY = "sub_manager_sync";
+const SYNC_ROOT = "https://textdb.dev/api/data/";
+
+let items = loadItems();
+let tombs = loadTombs();   /* 墓碑：[{id, at}]，防止删除后同步复活 */
+let editingId = null;
+let deleteArmed = false;
+let wipeArmed = false;
+
+function loadItems() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+    return Array.isArray(arr) ? arr.filter(valid).map(normalize) : [];
+  } catch { return []; }
+}
+function loadTombs() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(TOMB_KEY) || "[]");
+    return Array.isArray(arr) ? arr.filter(t => t && t.id && isFinite(t.at)) : [];
+  } catch { return []; }
+}
+function valid(it) { return it && typeof it.name === "string" && isFinite(it.price); }
+function normalize(it) {
+  return {
+    id: String(it.id ?? crypto.randomUUID()),
+    name: it.name.trim().slice(0, 30),
+    cycle: it.cycle === "yearly" ? "yearly" : "monthly",
+    price: Math.round(Number(it.price) * 100) / 100,
+    date: /^\d{4}-\d{2}-\d{2}$/.test(it.date) ? it.date : todayStr(),
+    expires: /^\d{4}-\d{2}-\d{2}$/.test(it.expires) ? it.expires : "",
+    note: typeof it.note === "string" ? it.note.trim().slice(0, 60) : "",
+    active: it.active !== false,
+    updatedAt: isFinite(it.updatedAt) ? Number(it.updatedAt) : 0,
+  };
+}
+function save() {
+  localStorage.setItem(STORE_KEY, JSON.stringify(items));
+  localStorage.setItem(TOMB_KEY, JSON.stringify(tombs));
+  markDirty();
+}
+function addTomb(id) {
+  tombs = tombs.filter(t => t.id !== id);
+  tombs.push({ id, at: Date.now() });
+  if (tombs.length > 500) tombs = tombs.slice(-500);
+}
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+/* ==================== 工具 ==================== */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (n) => n.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const monthlyEquiv = (it) => it.cycle === "monthly" ? it.price : it.price / 12;
+function daysUntil(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  return Math.round((d - now) / 86400000);
+}
+function expireInfo(it) {
+  if (!it.expires) return null;
+  const days = daysUntil(it.expires);
+  if (days < 0) return { tag: '<span class="expire-tag expired">已过期</span>', meta: '<span class="exp-expired">' + it.expires + ' 已过期</span>' };
+  if (days <= 30) return { tag: '<span class="expire-tag soon">' + days + '天后到期</span>', meta: '<span class="exp-soon">' + it.expires + ' 到期</span>' };
+  return { tag: "", meta: '<span>' + it.expires + ' 到期</span>' };
+}
+const PALETTE = ["#6B8E5A", "#B1804B", "#5E7F8E", "#8E6B7F", "#8E7A4B", "#5F7D6B", "#A66A4E", "#71699B"];
+function avatarColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+
+/* ==================== 渲染 ==================== */
+function render() {
+  const sorted = [...items].sort((a, b) =>
+    (b.active - a.active) || (monthlyEquiv(b) - monthlyEquiv(a))
+  );
+
+  let mTotal = 0, activeCount = 0, pausedCount = 0;
+  for (const it of items) {
+    if (it.active) { mTotal += monthlyEquiv(it); activeCount++; }
+    else pausedCount++;
+  }
+  $("#sum-monthly").textContent = fmt(mTotal);
+  $("#sum-yearly").textContent = "¥" + fmt(mTotal * 12);
+  $("#sum-acount").textContent = activeCount;
+  $("#sum-pcount").textContent = pausedCount;
+  $("#sum-paused-wrap").hidden = pausedCount === 0;
+
+  const list = $("#list");
+  if (!sorted.length) {
+    list.innerHTML = '<div class="empty"><div class="glyph" aria-hidden="true">🧾</div><h3>还没有记录订阅</h3><p>把会员和价格记进来，看清每月到底花多少</p><button class="empty-add" type="button" id="empty-add">＋ 添加第一个订阅</button></div>';
+    const ea = document.getElementById("empty-add");
+    if (ea) ea.addEventListener("click", () => openSheet(null));
+    return;
+  }
+  list.innerHTML = sorted.map((it) => {
+    const tag = it.cycle === "monthly"
+      ? '<span class="cycle-tag monthly">月付</span>'
+      : '<span class="cycle-tag yearly">年付</span>';
+    const ei = expireInfo(it);
+    const metaParts = ['<span>办理于 ' + esc(it.date) + '</span>'];
+    if (ei) metaParts.push('<span class="dot">' + ei.meta + '</span>');
+    if (it.note) metaParts.push('<span class="dot">' + esc(it.note) + '</span>');
+    const raw = it.cycle === "monthly" ? "¥" + fmt(it.price) + "/月" : "¥" + fmt(it.price) + "/年";
+    const pausedTag = it.active ? "" : '<span class="paused-tag">已暂停</span>';
+    return '<button type="button" class="sub-card' + (it.active ? "" : " paused") + '" data-id="' + it.id + '" aria-label="编辑 ' + esc(it.name) + '">' +
+      '<span class="check' + (it.active ? " on" : "") + '" role="checkbox" aria-checked="' + (it.active ? "true" : "false") + '" aria-label="' + (it.active ? "暂停计费" : "恢复计费") + '" data-check="' + it.id + '">' +
+      '<svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' +
+      '<span class="avatar" style="background:' + avatarColor(it.name) + '" aria-hidden="true">' + esc(it.name.slice(0, 1)) + '</span>' +
+      '<span class="sub-info"><span class="sub-name"><span class="name-text">' + esc(it.name) + '</span>' + tag + pausedTag + (ei && ei.tag ? ei.tag : "") + '</span>' +
+      '<span class="sub-meta">' + metaParts.join("") + '</span></span>' +
+      '<span class="sub-cost"><span class="m">' + fmt(monthlyEquiv(it)) + '<span class="per"> /月</span></span>' +
+      '<span class="raw">' + raw + '</span></span></button>';
+  }).join("");
+}
+
+/* ==================== 表单抽屉 ==================== */
+const sheet = $("#sheet"), overlay = $("#overlay");
+
+function openSheet(item) {
+  editingId = item ? item.id : null;
+  deleteArmed = false;
+  $("#sheet-title").textContent = item ? "编辑订阅" : "添加订阅";
+  $("#sheet-sub").textContent = item ? "点左下角可删除，勾选框控制是否计费" : "记录会员价格与办理时间";
+  $("#in-name").value = item ? item.name : "";
+  $("#in-price").value = item ? String(item.price) : "";
+  $("#in-date").value = item ? item.date : todayStr();
+  $("#in-expire").value = item ? (item.expires || "") : "";
+  $("#in-note").value = item ? (item.note || "") : "";
+  setCycle(item ? item.cycle : "monthly");
+  $("#f-name").classList.remove("invalid");
+  $("#f-price").classList.remove("invalid");
+  $("#f-expire").classList.remove("invalid");
+  const del = $("#btn-delete");
+  del.hidden = !item;
+  del.classList.remove("confirm");
+  del.textContent = "删除这条订阅";
+  sheet.classList.add("open");
+  overlay.classList.add("open");
+  setTimeout(() => $("#in-name").focus(), 260);
+}
+function closeSheet() {
+  sheet.classList.remove("open");
+  overlay.classList.remove("open");
+  $("#sub-form").reset();
+  $("#in-name").blur();
+  deleteArmed = false;
+  const del = $("#btn-delete");
+  del.classList.remove("confirm");
+  del.textContent = "删除这条订阅";
+}
+function setCycle(c) {
+  document.querySelectorAll("#seg-cycle button").forEach(b => {
+    const on = b.dataset.cycle === c;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-checked", on ? "true" : "false");
+  });
+}
+
+$("#btn-add").addEventListener("click", () => openSheet(null));
+overlay.addEventListener("click", closeSheet);
+$("#btn-cancel").addEventListener("click", closeSheet);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); closeSettings(); } });
+$("#seg-cycle").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-cycle]");
+  if (btn) setCycle(btn.dataset.cycle);
+});
+
+$("#sub-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = $("#in-name").value.trim();
+  const price = Math.round(parseFloat($("#in-price").value) * 100) / 100;
+  let ok = true;
+  $("#f-name").classList.toggle("invalid", !name); if (!name) ok = false;
+  $("#f-price").classList.toggle("invalid", !(price > 0)); if (!(price > 0)) ok = false;
+  if (!ok) return;
+
+  const cycle = document.querySelector("#seg-cycle button.active").dataset.cycle;
+  const expires = $("#in-expire").value || "";
+  const startDate = $("#in-date").value || todayStr();
+  const expireBad = expires && expires < startDate;
+  $("#f-expire").classList.toggle("invalid", expireBad);
+  if (expireBad) return;
+
+  const data = { name, cycle, price, date: startDate, expires, note: $("#in-note").value.trim(), updatedAt: Date.now() };
+  if (editingId) {
+    const idx = items.findIndex(it => it.id === editingId);
+    if (idx > -1) items[idx] = { ...items[idx], ...data };
+    toast("已保存修改");
+  } else {
+    items.push(normalize({ ...data, id: crypto.randomUUID(), active: true }));
+    toast("已添加「" + name + "」");
+  }
+  save();
+  render();
+  closeSheet();
+});
+
+/* 删除：二次点击确认 */
+const delBtn = $("#btn-delete");
+delBtn.addEventListener("click", () => {
+  if (!deleteArmed) {
+    deleteArmed = true;
+    delBtn.classList.add("confirm");
+    delBtn.textContent = "再点一次确认删除";
+    setTimeout(() => {
+      deleteArmed = false;
+      delBtn.classList.remove("confirm");
+      delBtn.textContent = "删除这条订阅";
+    }, 3000);
+    return;
+  }
+  const idx = items.findIndex(it => it.id === editingId);
+  if (idx > -1) {
+    addTomb(items[idx].id);
+    toast("已删除「" + items[idx].name + "」");
+    items.splice(idx, 1);
+    save();
+    render();
+  }
+  closeSheet();
+});
+
+/* 卡片点击：勾选框切换 / 其余区域编辑 */
+$("#list").addEventListener("click", (e) => {
+  const chk = e.target.closest("[data-check]");
+  if (chk) {
+    e.stopPropagation();
+    const it = items.find(x => x.id === chk.dataset.check);
+    if (it) {
+      it.active = !it.active;
+      it.updatedAt = Date.now();
+      save();
+      render();
+      toast(it.active ? "已恢复计费：" + it.name : "已暂停计费（不计入汇总）");
+    }
+    return;
+  }
+  const card = e.target.closest(".sub-card");
+  if (!card) return;
+  const item = items.find(it => it.id === card.dataset.id);
+  if (item) openSheet(item);
+});
+
+/* ==================== 设置页 ==================== */
+const settingsPage = $("#settings-page");
+function openSettings() {
+  settingsPage.classList.add("open");
+  refreshSyncUI();
+}
+function closeSettings() { settingsPage.classList.remove("open"); }
+$("#btn-settings").addEventListener("click", openSettings);
+$("#btn-back").addEventListener("click", closeSettings);
+
+/* 导出 / 导入 */
+$("#btn-export").addEventListener("click", () => {
+  if (!items.length) { toast("还没有数据可备份", "warn"); return; }
+  const data = { app: "sub-manager", v: 1, exportedAt: todayStr(), items };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "订阅管家备份-" + todayStr() + ".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast("已导出 " + items.length + " 条记录");
+});
+$("#btn-import").addEventListener("click", () => $("#import-file").click());
+$("#import-file").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const arr = Array.isArray(parsed) ? parsed : parsed.items;
+      if (!Array.isArray(arr)) throw 0;
+      const ids = new Set(items.map(it => it.id));
+      let added = 0;
+      for (const raw of arr) {
+        if (!valid(raw)) continue;
+        const it = normalize(raw);
+        if (!ids.has(it.id)) { items.push(it); ids.add(it.id); added++; }
+      }
+      save();
+      render();
+      toast(added ? "导入成功，新增 " + added + " 条" : "没有新记录（均已存在）");
+    } catch { toast("导入失败：文件格式不正确", "warn"); }
+  };
+  reader.readAsText(file);
+});
+
+/* 清空：二次点击确认 */
+$("#btn-wipe").addEventListener("click", (e) => {
+  const btn = e.currentTarget;
+  if (!wipeArmed) {
+    wipeArmed = true;
+    btn.textContent = "再点一次确认清空";
+    btn.style.background = "var(--danger-subtle)";
+    setTimeout(() => {
+      wipeArmed = false;
+      btn.textContent = "清空所有订阅";
+      btn.style.background = "";
+    }, 3000);
+    return;
+  }
+  items.forEach(it => addTomb(it.id));
+  items = [];
+  save();
+  render();
+  wipeArmed = false;
+  btn.textContent = "清空所有订阅";
+  btn.style.background = "";
+  toast("已清空本机数据");
+});
+
+/* ==================== 云同步（同步码模式，同健康手账） ==================== */
+let syncConf = null, syncing = false, syncDebTimer = null;
+let syncStatus = "ok", syncErrMsg = "";
+try {
+  const sc = JSON.parse(localStorage.getItem(SYNC_CONF_KEY));
+  if (sc && sc.code && sc.k) syncConf = sc;
+} catch {}
+function saveSyncConf() { try { localStorage.setItem(SYNC_CONF_KEY, JSON.stringify(syncConf)); } catch {} }
+function markDirty() {
+  if (!syncConf || syncing) return;
+  clearTimeout(syncDebTimer);
+  syncDebTimer = setTimeout(() => syncNow(false), 2500);
+}
+
+const CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+function genCode() {
+  let s = "";
+  for (let i = 0; i < 16; i++) s += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  return s;
+}
+function normCode(s) {
+  return String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
+}
+function fmtCode(c) {
+  return c.slice(0, 4) + "-" + c.slice(4, 8) + "-" + c.slice(8, 12) + "-" + c.slice(12, 16);
+}
+
+async function shaHex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+async function deriveKey(code) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(code), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: new TextEncoder().encode("sub-manager-sync-v1"), iterations: 120000, hash: "SHA-256" },
+    base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+  );
+}
+const b64 = {
+  enc: (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))),
+  dec: (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0)),
+};
+async function encDoc(key, payload) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(JSON.stringify(payload)));
+  return { v: 1, app: "sub-manager", ct: b64.enc(ct), iv: b64.enc(iv) };
+}
+async function decDoc(key, doc) {
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64.dec(doc.iv) }, key, b64.dec(doc.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+function buildPayload() {
+  return { v: 1, app: "sub-manager", at: Date.now(), items, deleted: tombs };
+}
+function canon(o) { return JSON.stringify(o); }
+function mergePayload(cloud) {
+  /* 以 updatedAt 新者胜合并；墓碑时间晚于记录则记录删除 */
+  const tombMap = new Map();
+  for (const t of (cloud.deleted || [])) if (t && t.id) tombMap.set(t.id, Math.max(tombMap.get(t.id) || 0, Number(t.at) || 0));
+  for (const t of tombs) tombMap.set(t.id, Math.max(tombMap.get(t.id) || 0, t.at));
+  const byId = new Map(items.map(it => [it.id, it]));
+  for (const raw of (cloud.items || [])) {
+    if (!valid(raw)) continue;
+    const c = normalize(raw);
+    const t = tombMap.get(c.id) || 0;
+    if (c.updatedAt < t) continue;             /* 云端记录已被删除 */
+    const local = byId.get(c.id);
+    if (!local || c.updatedAt > local.updatedAt) byId.set(c.id, c);
+  }
+  items = [...byId.values()].filter(it => (tombMap.get(it.id) || 0) < it.updatedAt);
+  tombs = [...tombMap.entries()].map(([id, at]) => ({ id, at }));
+}
+
+async function syncNow(manual) {
+  if (!syncConf || syncing) return;
+  if (!(window.crypto && crypto.subtle)) { setSyncStatus("nocrypto"); if (manual) toast("当前环境不支持加密，无法同步", "warn"); return; }
+  if (!window.fetch) { if (manual) toast("此环境不支持网络请求", "warn"); return; }
+  syncing = true; setSyncStatus("syncing");
+  try {
+    const key = await deriveKey(syncConf.code);
+    const url = SYNC_ROOT + syncConf.k;
+    let raw = null;
+    const res = await fetch(url, { cache: "no-store" });
+    if (res.ok) raw = await res.text();
+    else if (res.status !== 404) throw new Error("网络异常（" + res.status + "）");
+
+    let cloud = null;
+    if (raw) {
+      let doc = null;
+      try { doc = JSON.parse(raw); } catch {}
+      if (doc && doc.ct && doc.iv) {
+        try { cloud = await decDoc(key, doc); }
+        catch {
+          setSyncStatus("codeerr");
+          if (manual) toast("同步码不匹配，云端数据无法解密", "warn");
+          syncing = false; refreshSyncUI(); return;
+        }
+      }
+    }
+    const before = canon(buildPayload());
+    if (cloud && cloud.items) { mergePayload(cloud); }
+    const afterP = buildPayload();
+    if (canon(afterP) !== before) { save(); render(); }
+    if (!cloud || canon(afterP) !== canon(cloud)) {
+      const doc = await encDoc(key, afterP);
+      const pr = await fetch(url, { method: "POST", headers: { "content-type": "text/plain" }, body: JSON.stringify(doc) });
+      if (!pr.ok) throw new Error("推送失败（" + pr.status + "）");
+    }
+    syncConf.lastSync = Date.now();
+    saveSyncConf();
+    setSyncStatus("ok");
+    if (manual) toast("已同步 ✓");
+  } catch (e) {
+    syncErrMsg = (e && e.message) || "同步失败";
+    setSyncStatus("error");
+    if (manual) toast("同步失败：" + syncErrMsg, "warn");
+  } finally {
+    syncing = false;
+    refreshSyncUI();
+  }
+}
+
+function setSyncStatus(s) { syncStatus = s; refreshSyncUI(); }
+function fmtSyncTime(ts) {
+  if (!ts) return "尚未同步";
+  const d = Date.now() - ts;
+  if (d < 60e3) return "刚刚";
+  if (d < 3600e3) return Math.floor(d / 60e3) + " 分钟前";
+  const t = new Date(ts);
+  return String(t.getHours()).padStart(2, "0") + ":" + String(t.getMinutes()).padStart(2, "0");
+}
+function syncStatusHTML() {
+  if (syncStatus === "syncing") return "正在同步…";
+  if (syncStatus === "error") return "⚠ 同步失败：" + syncErrMsg + "，稍后自动重试";
+  if (syncStatus === "codeerr") return "⚠ 同步码不匹配，云端数据无法解密";
+  if (syncStatus === "nocrypto") return "⚠ 当前环境不支持加密";
+  return "✓ 已同步 · " + fmtSyncTime(syncConf && syncConf.lastSync);
+}
+function refreshSyncUI() {
+  const unbound = $("#sync-unbound"), bound = $("#sync-bound"), line = $("#sync-line");
+  if (!unbound || !bound) return;
+  if (syncConf) {
+    unbound.hidden = true;
+    bound.hidden = false;
+    line.hidden = false;
+    $("#sync-code-show").textContent = fmtCode(syncConf.code);
+    const dot = $("#sync-dot");
+    dot.className = "sync-dot " + (syncStatus === "ok" ? "ok" : syncStatus === "syncing" ? "syncing" : "error");
+    $("#sync-text").innerHTML = syncStatusHTML();
+  } else {
+    unbound.hidden = false;
+    bound.hidden = true;
+    line.hidden = true;
+  }
+}
+
+function syncGen() {
+  (async () => {
+    const code = genCode();
+    syncConf = { code, k: await shaHex(code + "\u00b7sub-manager"), lastSync: 0 };
+    saveSyncConf();
+    refreshSyncUI();
+    try { await copyText(fmtCode(code)); toast("同步码已生成并复制，请妥善保存"); }
+    catch { toast("同步码已生成：" + fmtCode(code)); }
+    syncNow(false);
+  })();
+}
+async function syncBind() {
+  const input = $("#sync-code-input");
+  const code = normCode(input && input.value);
+  if (code.length !== 16) { toast("同步码格式不对：16 位字符（横杠可省略）", "warn"); return; }
+  if (!(window.crypto && crypto.subtle)) { toast("当前环境不支持加密，无法同步", "warn"); return; }
+  try {
+    const k = await shaHex(code + "\u00b7sub-manager");
+    let doc = null;
+    const res = await fetch(SYNC_ROOT + k, { cache: "no-store" });
+    if (res.ok) { try { doc = JSON.parse(await res.text()); } catch {} }
+    if (doc && doc.ct && doc.iv) {
+      try { await decDoc(await deriveKey(code), doc); }
+      catch { toast("同步码不正确：无法解密云端数据", "warn"); return; }
+    }
+    syncConf = { code, k, lastSync: 0 };
+    saveSyncConf();
+    refreshSyncUI();
+    toast(doc ? "绑定成功，正在拉取云端数据" : "云端暂无数据，将把本机数据上传");
+    syncNow(false);
+  } catch { toast("无法连接同步服务，请稍后再试", "warn"); }
+}
+function syncUnbind() {
+  syncConf = null;
+  localStorage.removeItem(SYNC_CONF_KEY);
+  refreshSyncUI();
+  toast("已解除绑定（云端数据保留）");
+}
+
+function copyText(t) {
+  return new Promise(resolve => {
+    const done = () => resolve(true);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(done, fallback);
+    } else fallback();
+    function fallback() {
+      const ta = document.createElement("textarea");
+      ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch {}
+      ta.remove(); done();
+    }
+  });
+}
+
+$("#btn-sync-gen").addEventListener("click", syncGen);
+$("#btn-sync-bind").addEventListener("click", syncBind);
+$("#btn-sync-copy").addEventListener("click", () => copyText(fmtCode(syncConf.code)).then(() => toast("同步码已复制")));
+$("#btn-sync-now").addEventListener("click", () => syncNow(true));
+$("#btn-sync-unbind").addEventListener("click", syncUnbind);
+
+/* ==================== Toast ==================== */
+let toastTimer;
+function toast(msg, kind) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast show" + (kind === "warn" ? " warn" : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.classList.remove("show"); }, 2400);
+}
+
+render();
+refreshSyncUI();
+</script>
+</body>
+</html>
